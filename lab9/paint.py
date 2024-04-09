@@ -1,183 +1,150 @@
-import pygame 
-import random
+import pygame, math
 
-pygame.init()
+display_width=800
+display_height=600
+game_display=pygame.display.set_mode((display_width, display_height))
+pygame.display.set_caption('Shape Drawer')
 
-W, H = 800, 600
-FPS = 60
+black=(0, 0, 0)
+white=(255, 255, 255)
 
-screen = pygame.display.set_mode((W, H), pygame.RESIZABLE)
-clock = pygame.time.Clock()
-done = False
-bg = (255, 192, 203)
+clock=pygame.time.Clock()
 
-# Paddle
-paddleW = 200
-paddleH = 25
-paddleSpeed = 20
-paddle = pygame.Rect(W // 2 - paddleW // 2, H - paddleH - 30, paddleW, paddleH)
-
-# Ball
-ballRadius = 20
-ballSpeed = 6
-ball_rect = int(ballRadius * 2 ** 0.5)
-ball = pygame.Rect(random.randrange(ball_rect, W - ball_rect), H // 2, ball_rect, ball_rect)
-dx, dy = 1, -1
-
-# Blocks
-block_width = 100
-block_height = 50
-blocks = [{'rect': pygame.Rect(10 + 120 * i, 50 + 70 * j, block_width, block_height),
-           'color': (random.randrange(0, 255), random.randrange(0, 255), random.randrange(0, 255)),
-           'hits': 1, 'destroyed': False, 'indestructible': False}
-          for i in range(10) for j in range(4)]
-
-# Make some blocks indestructible
-indestructible_blocks = random.sample(blocks, 5)  # Choose 5 blocks randomly
-for block in indestructible_blocks:
-    block['indestructible'] = True
-
-# Sound
-collision_sound = pygame.mixer.Sound('catch.mp3')
-
-# Game over
-font = pygame.font.SysFont('comicsansms', 40)
-text = font.render('Game Over', True, (255, 255, 255))
-textRect = text.get_rect()
-textRect.center = (W // 2, H // 2)
-
-# Main menu
-def main_menu():
-    menu_font = pygame.font.SysFont('comicsansms', 40)
-    start_text = menu_font.render('Start Game (Press Space)', True, (0, 0, 0))
-    settings_text = menu_font.render('Settings (Press S)', True, (0, 0, 0))
-    screen.blit(start_text, (W // 2 - start_text.get_width() // 2, H // 2 - 50))
-    screen.blit(settings_text, (W // 2 - settings_text.get_width() // 2, H // 2 + 50))
-    pygame.display.update()
-
-# Settings menu
-def settings_menu():
-    settings_done = False
-    while not settings_done:
-        screen.fill(bg)
-        font = pygame.font.SysFont('comicsansms', 40)
-        paddle_speed_text = font.render(f'Paddle Speed: {paddleSpeed}', True, (0, 0, 0))
-        ball_speed_text = font.render(f'Ball Speed: {ballSpeed}', True, (0, 0, 0))
-        screen.blit(paddle_speed_text, (W // 2 - paddle_speed_text.get_width() // 2, H // 2 - 50))
-        screen.blit(ball_speed_text, (W // 2 - ball_speed_text.get_width() // 2, H // 2 + 50))
-        pygame.display.update()
+def main():
+    pygame.init()
+    screen=pygame.display.set_mode((640, 480))
+    clock=pygame.time.Clock()
+    
+    radius=15
+    x=0
+    y=0
+    mode='blue'
+    points=[]
+    
+    while True:
+        pressed=pygame.key.get_pressed()
+        alt_held=pressed[pygame.K_LALT] or pressed[pygame.K_RALT]
+        ctrl_held=pressed[pygame.K_LCTRL] or pressed[pygame.K_RCTRL]
+        
         for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    settings_done = True
-                elif event.key == pygame.K_UP:
-                    paddle_speed_increase()
-                elif event.key == pygame.K_DOWN:
-                    paddle_speed_decrease()
-                elif event.key == pygame.K_LEFT:
-                    ball_speed_decrease()
-                elif event.key == pygame.K_RIGHT:
-                    ball_speed_increase()
+            
+            if event.type==pygame.QUIT:
+                return
+            if event.type==pygame.KEYDOWN:
+                if event.key==pygame.K_w and ctrl_held:
+                    return
+                if event.key==pygame.K_F4 and alt_held:
+                    return
+                if event.key==pygame.K_ESCAPE:
+                    return
+            
+                if event.key==pygame.K_r:
+                    mode='red'
+                elif event.key==pygame.K_g:
+                    mode='green'
+                elif event.key==pygame.K_b:
+                    mode='blue'
+            
+            if event.type==pygame.MOUSEBUTTONDOWN:
+                if event.button==1: 
+                    radius=min(200, radius + 1)
+                elif event.button==3:
+                    radius=max(1, radius - 1)
+            
+            if event.type==pygame.MOUSEMOTION:
+                position=event.pos
+                points=points+[position]
+                points=points[-256:]
+                
+        screen.fill((0, 0, 0))
+        
+        i=0
+        while i<len(points)-1:
+            drawLineBetween(screen, i, points[i], points[i+1], radius, mode)
+            i+=1
+        
+        pygame.display.flip()
+        
+        clock.tick(60)
 
-def paddle_speed_increase():
-    global paddleSpeed
-    paddleSpeed += 1
+def drawLineBetween(screen, index, start, end, width, color_mode):
+    c1=max(0, min(255, 2 * index - 256))
+    c2=max(0, min(255, 2 * index))
+    
+    if color_mode=='blue':
+        color=(c1, c1, c2)
+    elif color_mode=='red':
+        color=(c2, c1, c1)
+    elif color_mode=='green':
+        color=(c1, c2, c1)
+    
+    dx=start[0]-end[0]
+    dy=start[1]-end[1]
+    iterations=max(abs(dx), abs(dy))
+    
+    for i in range(iterations):
+        progress=1.0*i/iterations
+        aprogress=1-progress
+        x=int(aprogress*start[0]+progress*end[0])
+        y=int(aprogress*start[1]+progress*end[1])
+        pygame.draw.circle(screen, color, (x, y), width)
 
-def paddle_speed_decrease():
-    global paddleSpeed
-    paddleSpeed -= 1
 
-def ball_speed_increase():
-    global ballSpeed
-    ballSpeed += 1
 
-def ball_speed_decrease():
-    global ballSpeed
-    ballSpeed -= 1
+def draw(self, screen, start, end):
+    if self.tool_type == 'pen':
+        pygame.draw.line(screen, self.color, start, end, self.size)
+    elif self.tool_type == 'rectangle':
+        pygame.draw.rect(screen, self.color, (start[0], start[1], end[0]-start[0], end[1]-start[1]), self.size)
+    elif self.tool_type == 'circle':
+        radius = int(math.sqrt((end[0]-start[0])**2 + (end[1]-start[1])**2))
+        pygame.draw.circle(screen, self.color, start, radius, self.size)
+    elif self.tool_type == 'eraser':
+        pygame.draw.line(screen, self.color, start, end, self.size)
+    
 
-# Main game loop
-while not done:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            done = True
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:  # Start game
-                main_loop = True
-                while main_loop:
-                    for event in pygame.event.get():
-                        if event.type == pygame.QUIT:
-                            main_loop = False
-                            done = True
-                        if event.type == pygame.KEYDOWN:
-                            if event.key == pygame.K_ESCAPE:
-                                main_loop = False
-                            if event.key == pygame.K_p:  # Pause
-                                paused = True
-                                while paused:
-                                    for event in pygame.event.get():
-                                        if event.type == pygame.KEYDOWN:
-                                            if event.key == pygame.K_p:
-                                                paused = False
-                                    screen.fill(bg)
-                                    font = pygame.font.SysFont('comicsansms', 40)
-                                    paused_text = font.render('Paused', True, (0, 0, 0))
-                                    screen.blit(paused_text, (W // 2 - paused_text.get_width() // 2, H // 2))
-                                    pygame.display.update()
-                            if event.key == pygame.K_s:  # Settings
-                                settings_menu()
-                    screen.fill(bg)
-                    # Draw paddle and ball
-                    pygame.draw.rect(screen, pygame.Color(234, 250, 177), paddle)
-                    pygame.draw.circle(screen, pygame.Color(250, 241, 157), ball.center, ballRadius)
-                    # Paddle Control
-                    key = pygame.key.get_pressed()
-                    if key[pygame.K_LEFT] and paddle.left > 0:
-                        paddle.left -= paddleSpeed
-                    if key[pygame.K_RIGHT] and paddle.right < W:
-                        paddle.right += paddleSpeed
-                    # Ball movement
-                    ball.x += ballSpeed * dx
-                    ball.y += ballSpeed * dy
-                    # Collision with walls
-                    if ball.centerx < ballRadius or ball.centerx > W - ballRadius:
-                        dx = -dx
-                    if ball.centery < ballRadius + 50:
-                        dy = -dy
-                    # Collision with paddle
-                    if ball.colliderect(paddle) and dy > 0:
-                        dy = -dy
-                    # Collision with blocks
-                    for block in blocks:
-                        if block['hits'] > 0 and ball.colliderect(block['rect']):
-                            if not block['indestructible']:  # Check if the block is destructible
-                                dy = -dy
-                                block['hits'] -= 1
-                                if block['hits'] == 0:
-                                    block['destroyed'] = True
-                            else:
-                                dx = -dx
-                                dy = -dy
-                            collision_sound.play()
-                    # Draw blocks
-                    for block in blocks:
-                        if not block['destroyed']:
-                            pygame.draw.rect(screen, block['color'], block['rect'])
-                    # Check if all blocks are destroyed
-                    if all(block['destroyed'] for block in blocks):
-                        screen.fill((255, 255, 255))
-                        screen.blit(text, textRect)
-                    # Check if ball is out of bounds
-                    if ball.y > H or ball.x > W:
-                        screen.fill((0, 0, 0))
-                        screen.blit(text, textRect)
-                    # Update game objects
-                    pygame.display.update()
-                    clock.tick(FPS)
-            elif event.key == pygame.K_s:  # Settings
-                settings_menu()
-                    
-    screen.fill(bg)
-    main_menu()
-    pygame.display.flip()
+def draw_square(x, y, size):
 
-pygame.quit()
+ top_left = (x, y)
+ top_right = (x + size, y)
+ bottom_left = (x, y + size)
+ bottom_right = (x + size, y + size)
+
+ pygame.draw.polygon(game_display, white, [top_left, top_right, bottom_right, bottom_left], 2)
+
+ 
+ def draw_right_triangle(x, y, size):
+
+  top = (x, y)
+  bottom_left = (x, y+size)
+  bottom_right = (x+size, y+size)
+ 
+  pygame.draw.polygon(game_display, white, [top, bottom_left, bottom_right], 2)
+
+def draw_equilateral_triangle(x, y, size):
+  top=(x, y)
+  bottom_left=(x-(size/2), y+size)
+  bottom_right=(x+(size/2), y+size)
+  pygame.draw.polygon(game_display, white, [top, bottom_left, bottom_right], 2)
+
+def draw_rhombus(x, y, size):
+  top=(x, y)
+  right=(x + (size / 2), y + (size / 2))
+  bottom=(x, y + size)
+  left=(x-(size/2), y+(size/2))
+  
+  pygame.draw.polygon(game_display, white, [top, right, bottom, left], 2)
+
+color_palette=pygame.display.set_mode((200, 150))
+colors=[(255, 255, 255), (0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+for i, color in enumerate(colors):
+    pygame.draw.rect(color_palette, color, (i*25, 0, 25, 25))
+pygame.display.set_caption("Select Color")
+
+draw_square(50, 50, 100)
+draw_equilateral_triangle(450, 50, 100)
+draw_rhombus(650, 50, 100)
+
+
+
+main()
